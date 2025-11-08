@@ -5,16 +5,16 @@
  * Página principal do quadro colaborativo
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, use } from 'react';
 import { WebSocketProvider, useWebSocket } from '@/components/WebSocketProvider';
 import { Board } from '@/components/Board';
 import { Toolbar } from '@/components/Toolbar';
 import { StickyNoteData } from '@/lib/types';
 
 interface BoardPageProps {
-  params: {
+  params: Promise<{
     boardId: string;
-  };
+  }>;
 }
 
 /**
@@ -110,7 +110,7 @@ function BoardContent() {
  * Página principal do quadro
  */
 export default function BoardPage({ params }: BoardPageProps) {
-  const { boardId } = params;
+  const { boardId } = use(params);
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState<'editor' | 'viewer'>('editor');
   const [hasJoined, setHasJoined] = useState(false);

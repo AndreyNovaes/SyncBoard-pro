@@ -9,7 +9,7 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { useBoardState } from '@/hooks/useBoardState';
 import { useWebSocket } from './WebSocketProvider';
-import { StickyNoteData, BoardObject } from '@/lib/types';
+import { StickyNoteData, BoardObject, DrawingData } from '@/lib/types';
 import { Cursors } from './Cursors';
 
 export function Board() {
@@ -18,6 +18,10 @@ export function Board() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const lastCursorSendTime = useRef(0);
+
+  // Estado para desenho com caneta
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [currentDrawing, setCurrentDrawing] = useState<{ x: number; y: number }[]>([]);
 
   const { objects, activeTool, currentUserRole } = useBoardState();
   const { send, isConnected } = useWebSocket();
@@ -51,6 +55,12 @@ export function Board() {
     // Enviar posição do cursor
     sendCursorUpdate(x, y);
 
+    // Se estiver desenhando com caneta
+    if (isDrawing && activeTool === 'PEN') {
+      setCurrentDrawing(prev => [...prev, { x, y }]);
+      return;
+    }
+
     // Se estiver arrastando um objeto
     if (isDragging && selectedObjectId) {
       const newX = x - dragOffset.x;
@@ -64,7 +74,7 @@ export function Board() {
         y: newY,
       });
     }
-  }, [isDragging, selectedObjectId, dragOffset, send, sendCursorUpdate]);
+  }, [isDragging, selectedObjectId, dragOffset, send, sendCursorUpdate, isDrawing, activeTool]);
 
   /**
    * Manipulador de clique no quadro
@@ -75,6 +85,17 @@ export function Board() {
     const rect = boardRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+
+    // Se a ferramenta ativa for PEN, iniciar desenho
+    if (activeTool === 'PEN') {
+      if (currentUserRole === 'viewer') {
+        alert('Viewers não podem desenhar');
+        return;
+      }
+      setIsDrawing(true);
+      setCurrentDrawing([{ x, y }]);
+      return;
+    }
 
     // Se a ferramenta ativa for STICKY_NOTE, criar uma nova nota
     if (activeTool === 'STICKY_NOTE') {
@@ -129,11 +150,46 @@ export function Board() {
   }, [activeTool, currentUserRole]);
 
   /**
-   * Manipulador de fim de arrasto
+   * Manipulador de fim de arrasto/desenho
    */
   const handleMouseUp = useCallback(() => {
+    // Se estava desenhando, criar o objeto de desenho
+    if (isDrawing && currentDrawing.length > 1) {
+      const objectId = `drawing_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // Calcular bounding box do desenho
+      const xs = currentDrawing.map(p => p.x);
+      const ys = currentDrawing.map(p => p.y);
+      const minX = Math.min(...xs);
+      const minY = Math.min(...ys);
+
+      // Normalizar pontos em relação ao ponto inicial
+      const normalizedPoints = currentDrawing.map(p => ({
+        x: p.x - minX,
+        y: p.y - minY
+      }));
+
+      const drawingData: DrawingData = {
+        x: minX,
+        y: minY,
+        points: normalizedPoints,
+        color: '#000000',
+        width: 3,
+      };
+
+      send({
+        type: 'CREATE_OBJECT',
+        objectId,
+        objectType: 'DRAWING',
+        data: drawingData,
+      });
+
+      setCurrentDrawing([]);
+    }
+
+    setIsDrawing(false);
     setIsDragging(false);
-  }, []);
+  }, [isDrawing, currentDrawing, send]);
 
   /**
    * Editar texto de uma nota adesiva
@@ -185,6 +241,16 @@ export function Board() {
           />
         );
 
+      case 'DRAWING':
+        return (
+          <Drawing
+            key={object.id}
+            object={object}
+            onDelete={() => handleDeleteObject(object.id)}
+            canEdit={currentUserRole === 'editor'}
+          />
+        );
+
       default:
         return null;
     }
@@ -225,6 +291,20 @@ export function Board() {
 
       {/* Renderizar todos os objetos */}
       {Array.from(objects.values()).map(renderObject)}
+
+      {/* Preview do desenho em progresso */}
+      {isDrawing && currentDrawing.length > 1 && (
+        <svg className="absolute inset-0 pointer-events-none" style={{ zIndex: 1000 }}>
+          <polyline
+            points={currentDrawing.map(p => `${p.x},${p.y}`).join(' ')}
+            fill="none"
+            stroke="#000000"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      )}
 
       {/* Renderizar cursores de outros usuários */}
       <Cursors />
@@ -338,6 +418,68 @@ function StickyNote({ object, isSelected, onMouseDown, onEdit, onDelete, canEdit
       <div className="mt-2 text-xs text-gray-600 opacity-70">
         {object.lastModifiedBy && `Modificado por ${object.lastModifiedBy.slice(0, 8)}...`}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Componente Drawing (Desenho com caneta)
+ */
+interface DrawingProps {
+  object: BoardObject;
+  onDelete: () => void;
+  canEdit: boolean;
+}
+
+function Drawing({ object, onDelete, canEdit }: DrawingProps) {
+  const data = object.data as DrawingData;
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Converter pontos para string SVG
+  const pointsString = data.points.map(p => `${p.x},${p.y}`).join(' ');
+
+  return (
+    <div
+      data-testid={`board-object-${object.id}`}
+      className="absolute pointer-events-auto"
+      style={{
+        left: `${data.x}px`,
+        top: `${data.y}px`,
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* SVG do desenho */}
+      <svg
+        className="block"
+        style={{
+          width: `${Math.max(...data.points.map(p => p.x)) + 10}px`,
+          height: `${Math.max(...data.points.map(p => p.y)) + 10}px`,
+        }}
+      >
+        <polyline
+          points={pointsString}
+          fill="none"
+          stroke={data.color}
+          strokeWidth={data.width}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+
+      {/* Botão de deletar (aparece ao passar o mouse) */}
+      {canEdit && isHovered && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs font-bold hover:bg-red-600 transition-colors shadow-md"
+          title="Deletar desenho"
+        >
+          ×
+        </button>
+      )}
     </div>
   );
 }
