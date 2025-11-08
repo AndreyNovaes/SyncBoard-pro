@@ -10,12 +10,9 @@ import { useBoardState } from '@/hooks/useBoardState';
 import { Tool, UserRole } from '@/lib/types';
 import { useWebSocket } from './WebSocketProvider';
 
-interface ToolbarProps {
-  onRaceConditionTest?: () => void;
-  onStressTest?: () => void;
-}
+interface ToolbarProps {}
 
-export function Toolbar({ onRaceConditionTest, onStressTest }: ToolbarProps) {
+export function Toolbar({}: ToolbarProps) {
   const { activeTool, setActiveTool, currentUserRole } = useBoardState();
   const { isConnected, connectionStatus } = useWebSocket();
 
@@ -93,32 +90,6 @@ export function Toolbar({ onRaceConditionTest, onStressTest }: ToolbarProps) {
               <span>{tool.label}</span>
             </button>
           ))}
-
-          {/* Divisor */}
-          <div className="h-8 w-px bg-gray-300" />
-
-          {/* Botões de Teste */}
-          <div className="flex gap-2">
-            <button
-              data-testid="trigger-race-condition"
-              onClick={onRaceConditionTest}
-              disabled={!isConnected || currentUserRole === 'viewer'}
-              className="px-3 py-2 bg-orange-500 text-white rounded-md text-sm font-medium hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Disparar teste de condição de corrida"
-            >
-              🏁 Race Test
-            </button>
-
-            <button
-              data-testid="stress-test-button"
-              onClick={onStressTest}
-              disabled={!isConnected || currentUserRole === 'viewer'}
-              className="px-3 py-2 bg-purple-500 text-white rounded-md text-sm font-medium hover:bg-purple-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Teste de estresse - Criar 500 objetos"
-            >
-              ⚡ Stress Test
-            </button>
-          </div>
         </div>
       </div>
     </div>

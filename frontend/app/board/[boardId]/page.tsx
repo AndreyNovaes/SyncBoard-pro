@@ -5,11 +5,10 @@
  * Página principal do quadro colaborativo
  */
 
-import React, { useState, useCallback, use } from 'react';
-import { WebSocketProvider, useWebSocket } from '@/components/WebSocketProvider';
+import React, { useState, use } from 'react';
+import { WebSocketProvider } from '@/components/WebSocketProvider';
 import { Board } from '@/components/Board';
 import { Toolbar } from '@/components/Toolbar';
-import { StickyNoteData } from '@/lib/types';
 
 interface BoardPageProps {
   params: Promise<{
@@ -21,86 +20,9 @@ interface BoardPageProps {
  * Componente interno que tem acesso ao WebSocket
  */
 function BoardContent() {
-  const { send } = useWebSocket();
-
-  /**
-   * Disparar teste de condição de corrida
-   */
-  const handleRaceConditionTest = useCallback(() => {
-    console.log('🏁 Disparando teste de condição de corrida...');
-
-    send({
-      type: 'TRIGGER_RACE_CONDITION',
-    });
-
-    alert('🏁 Teste de Race Condition iniciado! Verifique o console do navegador e os logs do servidor.');
-  }, [send]);
-
-  /**
-   * Teste de estresse - Criar 500 objetos
-   */
-  const handleStressTest = useCallback(() => {
-    const confirmed = confirm(
-      '⚡ Teste de Estresse\n\n' +
-      'Isso irá criar 500 objetos no quadro.\n' +
-      'Pode causar lentidão temporária.\n\n' +
-      'Continuar?'
-    );
-
-    if (!confirmed) return;
-
-    console.log('⚡ Iniciando teste de estresse - criando 500 objetos...');
-
-    const colors = ['#ffeb3b', '#ff9800', '#e91e63', '#9c27b0', '#3f51b5', '#00bcd4', '#4caf50'];
-    const startTime = Date.now();
-
-    for (let i = 0; i < 500; i++) {
-      const x = Math.random() * (window.innerWidth - 200);
-      const y = Math.random() * (window.innerHeight - 150);
-      const color = colors[Math.floor(Math.random() * colors.length)];
-
-      const objectId = `stress_test_${i}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-      const stickyNoteData: StickyNoteData = {
-        x,
-        y,
-        text: `Objeto #${i + 1}`,
-        width: 150,
-        height: 80,
-        color,
-      };
-
-      // Enviar em batches para não sobrecarregar de uma vez
-      setTimeout(() => {
-        send({
-          type: 'CREATE_OBJECT',
-          objectId,
-          objectType: 'STICKY_NOTE',
-          data: stickyNoteData,
-        });
-
-        // Log de progresso a cada 100 objetos
-        if ((i + 1) % 100 === 0) {
-          console.log(`⚡ Progresso: ${i + 1}/500 objetos criados`);
-        }
-
-        // Quando terminar
-        if (i === 499) {
-          const endTime = Date.now();
-          const duration = endTime - startTime;
-          console.log(`⚡ Teste de estresse concluído! 500 objetos criados em ${duration}ms`);
-          alert(`⚡ Teste concluído!\n\n500 objetos criados em ${duration}ms\n\nAgora teste a responsividade arrastando objetos!`);
-        }
-      }, i * 10); // 10ms de intervalo entre cada criação
-    }
-  }, [send]);
-
   return (
     <>
-      <Toolbar
-        onRaceConditionTest={handleRaceConditionTest}
-        onStressTest={handleStressTest}
-      />
+      <Toolbar />
       <Board />
     </>
   );

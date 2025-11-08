@@ -44,6 +44,10 @@ body {
   cursor: grabbing !important;
 }
 
+.board-canvas.cursor-grab {
+  cursor: grab !important;
+}
+
 /* Estilos para objetos do quadro */
 .board-object {
   transition: box-shadow 0.2s;
