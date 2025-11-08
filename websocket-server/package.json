@@ -1,0 +1,22 @@
+{
+  "name": "syncboard-websocket-server",
+  "version": "1.0.0",
+  "description": "Servidor WebSocket para SyncBoard Pro - Quadro Branco Colaborativo",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "keywords": [
+    "websocket",
+    "collaborative",
+    "real-time",
+    "qa-testing"
+  ],
+  "author": "SyncBoard Pro Team",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}
